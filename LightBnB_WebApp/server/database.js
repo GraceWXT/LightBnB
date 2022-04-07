@@ -102,8 +102,65 @@ exports.getAllReservations = getAllReservations;
  * @return {Promise<[{}]>}  A promise to the properties.
  */
 const getAllProperties = function(options, limit = 10) {
+  const queryParams = [];
+  let queryString = `
+  SELECT properties.*, AVG(rating) AS average_rating
+  FROM properties
+  INNER JOIN property_reviews ON property_id = properties.id
+  `;
+  console.log('initial query:', queryString, queryParams);
+
+  if (options.city) {
+    queryParams.push(`${options.city}`);
+    queryString += `AND city = $${queryParams.length} `;
+    // console.log('city:', queryString, queryParams);
+  }
+
+  if(options.owner_id) {
+    queryParams.push(`${options.owner_id}`);
+    queryString += `AND owner_id = $${queryParams.length} `;
+    // console.log('owner_id:', queryString, queryParams);
+  }
+
+  if(options.minimum_price_per_night) {
+    const min_price = 100 * Number.parseFloat(options.minimum_price_per_night);
+    queryParams.push(`${min_price}`);
+    queryString += `AND cost_per_night >= $${queryParams.length} `;
+    // console.log('min_price:', queryString, queryParams);
+  }
+
+  if(options.maximum_price_per_night) {
+    const max_price = 100 * Number.parseFloat(options.maximum_price_per_night);
+    queryParams.push(`${max_price}`);
+    queryString += `AND cost_per_night <= $${queryParams.length} `;
+    // console.log('max_price:', queryString, queryParams);
+  }
+
+  if(Number.parseFloat(options.minimum_rating)) {
+    const minimum_rating = Number.parseFloat(options.minimum_rating);
+    queryParams.push(`${minimum_rating}`);
+    queryString += `
+    GROUP BY properties.id
+    HAVING AVG(rating) >= $${queryParams.length} 
+    `;
+    queryParams.push(limit);
+    queryString += `
+    ORDER BY cost_per_night
+    LIMIT $${queryParams.length};
+    `;
+    // console.log('Final query w/ min_rating:', queryString, queryParams);
+  } else {
+    queryParams.push(limit);
+    queryString += `
+    GROUP BY properties.id
+    ORDER BY cost_per_night
+    LIMIT $${queryParams.length};
+    `;
+    // console.log('Final query W/O min_rating:', queryString, queryParams);
+  }
+
   return pool
-    .query(`SELECT * FROM properties LIMIT $1`, [limit])
+    .query(queryString, queryParams)
     .then((result) => {
       return result.rows;
     })
