@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const database = require('./database');
 const apiRoutes = require('./apiRoutes');
 const userRoutes = require('./userRoutes');
